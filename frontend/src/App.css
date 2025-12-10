@@ -1,0 +1,125 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.glass-card {
+  @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-5 shadow-xl;
+}
+
+
+
+/* Neon glow */
+.neon-glow {
+  filter: drop-shadow(0 0 8px #0ff) drop-shadow(0 0 15px #0ff);
+}
+
+/* CRT Scanlines */
+.crt {
+  position: relative;
+  overflow: hidden;
+}
+.crt::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.05) 0px,
+    rgba(255,255,255,0.05) 1px,
+    transparent 3px
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Chromatic Aberration Effect */
+.aberration {
+  filter: url(#chromatic);
+}
+
+/* Floating hologram distortion */
+@keyframes holoFloat {
+  0% { transform: translateY(0px) scale(1); opacity: 0.95; }
+  50% { transform: translateY(-6px) scale(1.01); opacity: 1; }
+  100% { transform: translateY(0px) scale(1); opacity: 0.95; }
+}
+.holo-animate {
+  animation: holoFloat 4s ease-in-out infinite;
+}
+
+/* Subtle neon (very light glow) */
+.neon-soft {
+  filter: drop-shadow(0 0 2px rgba(0,255,255,0.15));
+}
+
+/* Soft hologram float */
+@keyframes softFloat {
+  0% { transform: translateY(0px) scale(1); opacity: 0.97; }
+  50% { transform: translateY(-4px) scale(1.005); opacity: 1; }
+  100% { transform: translateY(0px) scale(1); opacity: 0.97; }
+}
+.holo-soft {
+  animation: softFloat 6s ease-in-out infinite;
+}
+
+/* Theme variables */
+:root {
+  --bg: #000000;
+  --fg: #ffffff;
+}
+
+[data-theme="light"] {
+  --bg: #f9fafb; /* near-white */
+  --fg: #0b1020; /* deep slate */
+}
+
+[data-theme="dark"] {
+  --bg: #000000;
+  --fg: #ffffff;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
