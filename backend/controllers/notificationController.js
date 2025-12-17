@@ -19,12 +19,40 @@ exports.createNotification = async ({ userId, message, link }) => {
     return notify;
 };
   
-// Get notifications
+// Get notifications (with optional pagination and type filter)
 exports.getNotifications = async (req, res) => {
-    const list = await Notification.find({ userId: req.user._id })
-        .sort({ createdAt: -1 });
+    try {
+        const { page, limit, type } = req.query;
+        const filter = { userId: req.user._id };
+        if (type && String(type).trim()) {
+            filter.type = String(type).trim();
+        }
 
-    res.json(list);
+        // If no pagination params provided, preserve legacy behavior (return array)
+        const paged = (page !== undefined || limit !== undefined);
+        if (!paged) {
+            const list = await Notification.find(filter).sort({ createdAt: -1 });
+            return res.json(list);
+        }
+
+        const pageNum = Math.max(1, parseInt(page || 1));
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit || 10)));
+        const skip = (pageNum - 1) * limitNum;
+
+        const [items, total] = await Promise.all([
+            Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+            Notification.countDocuments(filter),
+        ]);
+
+        return res.json({
+            items,
+            total,
+            page: pageNum,
+            pages: Math.max(1, Math.ceil(total / limitNum)),
+        });
+    } catch (e) {
+        return res.status(500).json({ message: "Failed to load notifications" });
+    }
 };
 
 // Mark one as read

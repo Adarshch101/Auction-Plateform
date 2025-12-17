@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { api } from "../utils/api";
 import { toast } from "react-hot-toast";
+import { useSettings } from "../context/SettingsContext";
 
 export default function AddAuction() {
   const [form, setForm] = useState({});
   const [file, setFile] = useState(null);
+  const { settings } = useSettings();
 
   const submit = async () => {
     const fd = new FormData();
@@ -35,7 +37,7 @@ export default function AddAuction() {
 
       <input type="file" className="mb-4" onChange={(e)=>setFile(e.target.files[0])} />
 
-      <button className="w-full bg-green-600 py-2 rounded" onClick={submit}>
+      <button className="w-full bg-green-600 py-2 rounded disabled:bg-gray-600 disabled:cursor-not-allowed" onClick={submit} disabled={!!settings?.maintenanceMode}>
         Create Auction
       </button>
     </div>

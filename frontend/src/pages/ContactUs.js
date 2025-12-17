@@ -12,7 +12,7 @@ export default function ContactUs() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "message") {
-      if (value.length > 2000) return; // enforce max
+      if (value.length > 2000) return;
       setMsgCount(value.length);
     }
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -47,62 +47,103 @@ export default function ContactUs() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-bold mb-2">Contact Us</h1>
-      <p className="text-gray-300 mb-8">We'd love to hear from you. Send us a message and we'll respond as soon as possible.</p>
+    <div className="relative max-w-3xl mx-auto px-6 py-16">
 
-      <form onSubmit={handleSubmit} className="space-y-5 bg-white/5 border border-white/10 rounded-xl p-6">
-        <div>
-          <label className="block text-sm mb-1">Name</label>
-          <input
-            type="text"
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            placeholder="Your name"
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Email</label>
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            placeholder="you@example.com"
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Subject</label>
-          <input
-            type="text"
-            name="subject"
-            value={form.subject}
-            onChange={handleChange}
-            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            placeholder="How can we help?"
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Message</label>
+      {/* --- Soft background glow --- */}
+      <div className="absolute inset-0 -z-10 opacity-30 bg-gradient-to-b from-cyan-600/20 via-blue-900/20 to-black blur-3xl" />
+
+      {/* --- Title --- */}
+      <h1 className="text-4xl font-extrabold mb-3 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent drop-shadow-lg">
+        Contact Us
+      </h1>
+      <p className="text-gray-300 mb-10 text-lg leading-relaxed">
+        We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+      </p>
+
+      {/* --- Glassmorphism GODMODE Card --- */}
+      <form
+        onSubmit={handleSubmit}
+        className="
+          relative p-8 rounded-2xl overflow-hidden 
+          backdrop-blur-xl bg-white/10 
+          shadow-[0_0_60px_-15px_rgba(0,200,255,0.3)] 
+          border border-white/20
+          animate-[float_6s_ease-in-out_infinite]
+        "
+      >
+
+        {/* Animated border frame */}
+        <div className="absolute inset-0 rounded-2xl border-[1px] border-transparent 
+          bg-[linear-gradient(135deg,rgba(0,200,255,0.5),rgba(0,100,255,0.2))] 
+          opacity-20 pointer-events-none" />
+
+        {/* Noise texture */}
+        <div className="absolute inset-0 pointer-events-none opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+
+        {/* --- Inputs --- */}
+        {["name", "email", "subject"].map((field) => (
+          <div key={field} className="group">
+            <label className="block text-sm mb-1 text-gray-300 capitalize">{field}</label>
+            <input
+              type={field === "email" ? "email" : "text"}
+              name={field}
+              value={form[field]}
+              onChange={handleChange}
+              placeholder={`Enter your ${field}`}
+              className="
+                w-full bg-black/30 border border-white/20 text-white 
+                rounded-xl px-4 py-3
+                transition-all duration-300 
+                focus:outline-none focus:ring-2 focus:ring-cyan-400 
+                focus:border-cyan-400
+                group-hover:shadow-[0_0_20px_rgba(0,200,255,0.4)]
+              "
+            />
+          </div>
+        ))}
+
+        {/* --- Message box --- */}
+        <div className="group">
+          <label className="block text-sm mb-1 text-gray-300">Message</label>
           <textarea
             name="message"
+            rows={6}
             value={form.message}
             onChange={handleChange}
-            rows={6}
-            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             placeholder="Tell us more..."
+            className="
+              w-full bg-black/30 border border-white/20 text-white 
+              rounded-xl px-4 py-3
+              transition-all duration-300 
+              focus:outline-none focus:ring-2 focus:ring-cyan-400 
+              focus:border-cyan-400
+              resize-none
+              group-hover:shadow-[0_0_20px_rgba(0,200,255,0.4)]
+            "
           />
-          <div className="text-xs text-gray-400 mt-1 text-right">{msgCount}/2000</div>
+          <div className="text-xs text-cyan-300/70 mt-1 text-right">
+            {msgCount}/2000
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-4">
+
+        {/* --- Submit + Captcha Row --- */}
+        <div className="flex items-center justify-between pt-4">
           <CaptchaCheckbox onChange={setCaptchaOk} />
+
           <button
             type="submit"
             disabled={loading}
-            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+            className="
+              relative px-6 py-3 rounded-xl 
+              font-semibold tracking-wide 
+              bg-gradient-to-r from-cyan-500 to-blue-600 
+              shadow-[0_0_15px_rgba(0,200,255,0.7)]
+              hover:shadow-[0_0_25px_rgba(0,200,255,1)]
+              transition-all duration-300
+              disabled:opacity-60 
+              animate-pulse
+              text-white
+            "
           >
             {loading ? "Sending..." : "Send Message"}
           </button>

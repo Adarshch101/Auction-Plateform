@@ -140,13 +140,13 @@ export default function SellerAddProduct() {
         ))}
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto p-10 text-white">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-8 py-10 text-white">
 
         {/* PAGE TITLE */}
         <motion.h1
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-extrabold bg-gradient-to-r from-cyan-400 to-purple-500 
+          className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-cyan-400 to-purple-500 
           bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(0,255,255,0.4)]"
         >
           Add Product / Auction
@@ -156,7 +156,7 @@ export default function SellerAddProduct() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex gap-5 mt-6 mb-10"
+          className="flex flex-wrap gap-3 sm:gap-5 mt-6 mb-10"
         >
           {["auction", "direct"].map((t) => (
             <motion.button
@@ -164,7 +164,7 @@ export default function SellerAddProduct() {
               whileTap={{ scale: 0.95 }}
               key={t}
               onClick={() => setType(t)}
-              className={`px-6 py-3 rounded-xl font-semibold transition shadow-lg
+              className={`px-5 py-3 rounded-xl font-semibold transition shadow-lg
                 ${
                   type === t
                     ? "bg-gradient-to-r from-cyan-500 to-blue-600 shadow-cyan-500/40 scale-105"
@@ -183,7 +183,7 @@ export default function SellerAddProduct() {
           animate={{ opacity: 1, y: 0 }}
           whileHover={{ scale: 1.01 }}
           transition={{ duration: 0.4 }}
-          className="bg-white/5 border border-white/10 p-8 rounded-3xl backdrop-blur-xl shadow-2xl space-y-6"
+          className="bg-white/5 border border-white/10 p-6 sm:p-8 rounded-3xl backdrop-blur-xl shadow-2xl space-y-6"
         >
           {/* TITLE */}
           <FloatingInput
@@ -263,7 +263,7 @@ export default function SellerAddProduct() {
               multiple
               accept="image/*"
               onChange={updateImage}
-              className="text-gray-200"
+              className="text-gray-200 block w-full"
             />
           </div>
 

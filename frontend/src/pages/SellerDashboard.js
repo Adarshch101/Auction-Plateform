@@ -252,6 +252,7 @@ export default function SellerDashboard() {
         <div className="flex items-center gap-4 mt-10">
           <motion.button
             whileHover={{ scale: 1.05 }}
+            type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             className="px-4 py-2 bg-white/10 rounded-xl hover:bg-white/20 disabled:opacity-40"
@@ -263,6 +264,7 @@ export default function SellerDashboard() {
 
           <motion.button
             whileHover={{ scale: 1.05 }}
+            type="button"
             disabled={page >= pages}
             onClick={() => setPage((p) => Math.min(p + 1, pages))}
             className="px-4 py-2 bg-white/10 rounded-xl hover:bg-white/20 disabled:opacity-40"

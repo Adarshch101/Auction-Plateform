@@ -4,10 +4,12 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "../components/admin/AdminLayout";
 import Modal from "../components/ui/Modal";
+import { useSettings } from "../context/SettingsContext";
 
 export default function AdminAddAuction() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { settings } = useSettings();
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -310,7 +312,7 @@ export default function AdminAddAuction() {
         <div className="flex gap-4 pt-4">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!settings?.maintenanceMode}
             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed py-3 rounded-lg font-semibold text-white transition"
           >
             {loading ? "Creating..." : "Create Auction"}

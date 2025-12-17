@@ -2,11 +2,13 @@ import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { api } from "../utils/api";
 import { toast } from "react-hot-toast";
+import { useSettings } from "../context/SettingsContext";
 
 export default function EditAuction() {
   const { id } = useParams();
   const [form, setForm] = useState({});
   const [file, setFile] = useState(null);
+  const { settings } = useSettings();
 
   useEffect(() => {
     api.get(`/auctions/${id}`).then((res) => setForm(res.data));
@@ -39,7 +41,7 @@ export default function EditAuction() {
 
       <input type="file" onChange={(e)=>setFile(e.target.files[0])} />
 
-      <button className="w-full bg-blue-600 py-2 mt-4" onClick={submit}>
+      <button className="w-full bg-blue-600 py-2 mt-4 disabled:bg-gray-600 disabled:cursor-not-allowed" onClick={submit} disabled={!!settings?.maintenanceMode}>
         Update Auction
       </button>
     </div>

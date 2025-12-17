@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Update the loc values to your production domain -->
+  <url>
+    <loc>https://example.com/</loc>
+  </url>
+  <url>
+    <loc>https://example.com/auctions</loc>
+  </url>
+  <url>
+    <loc>https://example.com/about</loc>
+  </url>
+  <url>
+    <loc>https://example.com/contact</loc>
+  </url>
+  <url>
+    <loc>https://example.com/login</loc>
+  </url>
+  <url>
+    <loc>https://example.com/register</loc>
+  </url>
+  <url>
+    <loc>https://example.com/compare</loc>
+  </url>
+  <url>
+    <loc>https://example.com/wishlist</loc>
+  </url>
+  <url>
+    <loc>https://example.com/collections/astral</loc>
+  </url>
+  <url>
+    <loc>https://example.com/collections/timeless-relics</loc>
+  </url>
+  <url>
+    <loc>https://example.com/collections/intergalactic-artifacts</loc>
+  </url>
+  <url>
+    <loc>https://example.com/curations/cosmic</loc>
+  </url>
+</urlset>

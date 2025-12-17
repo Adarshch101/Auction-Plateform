@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiHome, FiUsers, FiBox, FiBell, FiSettings, FiLogOut, FiPlus, FiStar, FiBarChart2 } from "react-icons/fi";
+import { FiHome, FiUsers, FiBox, FiBell, FiSettings, FiLogOut, FiPlus, FiStar, FiBarChart2, FiFileText } from "react-icons/fi";
 import { useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
 
@@ -16,10 +16,12 @@ export default function AdminSidebar() {
     { to: "/admin/auctions", label: "Auctions", icon: <FiBox /> },
     { to: "/admin/auctions/add", label: "Create Auction", icon: <FiPlus /> },
     { to: "/admin/kyc", label: "Verify Sellers", icon: <FiStar /> },
+    { to: "/admin/wallet-approvals", label: "Wallet Approvals", icon: <FiFileText /> },
   ];
 
   const toolsLinks = [
     { to: "/admin/stats", label: "Statistics", icon: <FiBarChart2 /> },
+    { to: "/admin/audit-logs", label: "Audit Logs", icon: <FiFileText /> },
     { to: "/admin/notifications", label: "Notifications", icon: <FiBell /> },
     { to: "/admin/settings", label: "Settings", icon: <FiSettings /> },
   ];

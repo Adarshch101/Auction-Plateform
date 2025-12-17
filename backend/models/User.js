@@ -8,14 +8,43 @@ const userSchema = new mongoose.Schema(
     password: String,
     role: { type: String, default: "user" }, // user, admin, seller
     phone: { type: String, default: "" },
+    username: { type: String, default: "" },
+    bio: { type: String, default: "" },
+    location: { type: String, default: "" },
+    timezone: { type: String, default: "" },
     address: { type: String, default: "" },
+    addresses: [
+      new mongoose.Schema(
+        {
+          label: { type: String, default: "" },
+          name: { type: String, default: "" },
+          line1: { type: String, default: "" },
+          line2: { type: String, default: "" },
+          city: { type: String, default: "" },
+          state: { type: String, default: "" },
+          postalCode: { type: String, default: "" },
+          country: { type: String, default: "" },
+          phone: { type: String, default: "" },
+          isDefault: { type: Boolean, default: false },
+        },
+        { _id: false }
+      ),
+    ],
     avatar: { type: String, default: "" },
     wallet: { type: Number, default: 0 },
     kycVerified: { type: Boolean, default: false },
     kycRequested: { type: Boolean, default: false },
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorTempOtp: { type: String, default: "" },
+    twoFactorOtpExpires: { type: Date, default: null },
+    twoFactorLastSentAt: { type: Date, default: null },
+    lastReauthAt: { type: Date, default: null },
     storeBio: { type: String, default: "" },
+    twitter: { type: String, default: "" },
     instagram: { type: String, default: "" },
     website: { type: String, default: "" },
+    gstNumber: { type: String, default: "" },
+    panNumber: { type: String, default: "" },
     prefs: {
       type: Object,
       default: {

@@ -1,3 +1,6 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Disallow:
+
+# Update this to your production domain
+Sitemap: https://example.com/sitemap.xml

@@ -428,7 +428,7 @@ export default function ChatRoom({ chatId: chatIdProp, embedded = false, onBack 
       )}
 
       {/* CHAT MESSAGES */}
-      <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-2 bg-black/80 backdrop-blur-xl relative z-10">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-4 pb-28 space-y-2 bg-black/80 backdrop-blur-xl relative z-10">
         {displayMessages.map((msg) => {
           const sender = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
           const me = (myId || auth.userId || localStorage.getItem("userId"));

@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { api } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -7,32 +7,99 @@ import { motion } from "framer-motion";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
+  const [otpPhase, setOtpPhase] = useState(false);
+  const [otp, setOtp] = useState("");
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [otpSeconds, setOtpSeconds] = useState(0);
+  const [otpExpiresAt, setOtpExpiresAt] = useState(null);
+  const [resendLoading, setResendLoading] = useState(false);
 
   // Magnetic button effect
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
   const submit = async () => {
-    if (!form.email || !form.password) {
-      toast.error("Please enter email and password");
+    // Phase 1: email/password
+    if (!otpPhase) {
+      if (!form.email || !form.password) {
+        toast.error("Please enter email and password");
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await api.post("/auth/login", form);
+        if (res.data?.require2fa) {
+          setOtpPhase(true);
+          toast.success("OTP sent to your email");
+          const expiresAt = Date.now() + 60 * 1000;
+          setOtpExpiresAt(expiresAt);
+          setOtpSeconds(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+          return;
+        }
+        login(res.data.token, res.data.role, res.data.userId);
+        toast.success("Logged in successfully");
+        const next = searchParams.get("next");
+        navigate(next || "/");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Invalid credentials");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
-
+    // Phase 2: OTP verify
+    if (!otp.trim()) {
+      toast.error("Enter the OTP sent to your email");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await api.post("/auth/login", form);
+      const res = await api.post("/auth/login", { ...form, otp: otp.trim() });
       login(res.data.token, res.data.role, res.data.userId);
       toast.success("Logged in successfully");
       const next = searchParams.get("next");
       navigate(next || "/");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Invalid credentials");
+      toast.error(err.response?.data?.message || "OTP verification failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // countdown for OTP expiry based on absolute timestamp
+  useEffect(() => {
+    if (!otpPhase || !otpExpiresAt) return;
+    const id = setInterval(() => {
+      const remain = Math.max(0, Math.ceil((otpExpiresAt - Date.now()) / 1000));
+      setOtpSeconds(remain);
+    }, 1000);
+    // initialize immediately as well
+    const remainNow = Math.max(0, Math.ceil((otpExpiresAt - Date.now()) / 1000));
+    setOtpSeconds(remainNow);
+    return () => clearInterval(id);
+  }, [otpPhase, otpExpiresAt]);
+
+  const handleResend = async () => {
+    if (resendLoading) return;
+    if (!form.email || !form.password) {
+      toast.error("Enter email and password first");
+      return;
+    }
+    setResendLoading(true);
+    try {
+      await api.post("/auth/login", form);
+      setOtp("");
+      const expiresAt = Date.now() + 60 * 1000;
+      setOtpExpiresAt(expiresAt);
+      setOtpSeconds(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+      toast.success("A new OTP has been sent to your email");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to resend OTP");
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -112,7 +179,42 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Login Button - Magnetic Hover Effect */}
+        {/* OTP input (2FA) */}
+        {otpPhase && (
+          <>
+            <label className="block text-sm text-gray-300 mt-4 mb-1">OTP</label>
+            <motion.input
+              whileFocus={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
+              placeholder="6-digit code"
+              className="w-full p-3 bg-black/40 rounded-lg border border-white/10 text-white 
+                         shadow-inner outline-none focus:ring-1 focus:ring-purple-400"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+            />
+
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-gray-300">
+                Expires in {String(Math.floor(otpSeconds / 60)).padStart(2, "0")}:
+                {String(otpSeconds % 60).padStart(2, "0")}
+              </span>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={otpSeconds > 0 || resendLoading}
+                className={`px-3 py-1 rounded-md border border-white/20 text-white transition ${
+                  otpSeconds > 0 || resendLoading
+                    ? "opacity-80 cursor-not-allowed"
+                    : "hover:bg-white/10"
+                }`}
+              >
+                {resendLoading ? "Resending..." : "Resend OTP"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Login/Verify Button - Magnetic Hover Effect */}
         <motion.button
           onMouseMove={(e) => {
             const rect = e.target.getBoundingClientRect();
@@ -131,7 +233,7 @@ export default function Login() {
                      bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-purple-700/40 
                      hover:shadow-purple-500/60 active:scale-95 transition disabled:opacity-50"
         >
-          {loading ? "Authenticating..." : "Login"}
+          {loading ? "Authenticating..." : otpPhase ? "Verify OTP" : "Login"}
         </motion.button>
 
         {/* Register Link */}

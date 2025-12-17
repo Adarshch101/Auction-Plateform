@@ -6,6 +6,7 @@ const { protect } = require("../middlewares/authMiddleware.js");
 const upload = require("../middlewares/uploadImage.js");
 const cloudinary = require("../config/cloudinary.js");
 const User = require("../models/User.js");
+const { sendMail } = require("../config/mailer.js");
 const Auction = require("../models/Auction.js");
 const Settings = require("../models/Settings.js");
 const Bid = require("../models/Bid.js");
@@ -30,6 +31,123 @@ router.post("/login", loginUser);
 router.get("/me", protect, async (req, res) => {
     // console.log("User in /me route:", req.user);
   res.json(req.user);
+});
+
+/* -------------------- RE-AUTHENTICATE (VERIFY PASSWORD) -------------------- */
+router.post("/reauth", protect, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ message: "Password is required" });
+
+    // Need the hashed password to compare; fetch fresh user with password
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const ok = await user.matchPassword(password);
+    if (!ok) return res.status(401).json({ message: "Invalid password" });
+
+    user.lastReauthAt = new Date();
+    await user.save();
+    return res.json({ success: true, reauthAt: user.lastReauthAt });
+  } catch (e) {
+    return res.status(500).json({ message: "Failed to verify password" });
+  }
+});
+
+/* -------------------- TWO-FACTOR AUTH (2FA) -------------------- */
+router.post("/2fa/request", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // cooldown: 60s between OTP sends
+    if (user.twoFactorLastSentAt) {
+      const elapsed = (Date.now() - new Date(user.twoFactorLastSentAt).getTime()) / 1000;
+      const cooldown = 60; // seconds
+      if (elapsed < cooldown) {
+        const remain = Math.ceil(cooldown - elapsed);
+        return res.status(429).json({ message: `Please wait ${remain}s before requesting another code`, remain });
+      }
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.twoFactorTempOtp = otp;
+    user.twoFactorOtpExpires = expires;
+    user.twoFactorLastSentAt = new Date();
+    await user.save();
+
+    // Send OTP via email if SMTP configured
+    try {
+      await sendMail({
+        to: user.email,
+        subject: "Your 2FA verification code",
+        text: `Your code is ${otp}. It expires in 10 minutes.`,
+        html: `<p>Your verification code is:</p><h2>${otp}</h2><p>This code expires in 10 minutes.</p>`,
+      });
+    } catch (e) {
+      // If mail sending fails, continue to allow dev testing
+      console.warn("[2FA] Failed to send OTP email:", e?.message);
+    }
+
+    // Dev convenience: include OTP in response outside production
+    const body = { message: "OTP generated", expiresAt: expires, cooldown: 60 };
+    if (process.env.NODE_ENV !== 'production') body.otp = otp;
+    return res.json(body);
+  } catch (e) {
+    return res.status(500).json({ message: "Failed to initiate 2FA" });
+  }
+});
+
+router.post("/2fa/enable", protect, async (req, res) => {
+  try {
+    const { otp } = req.body || {};
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!otp || !user.twoFactorTempOtp || !user.twoFactorOtpExpires)
+      return res.status(400).json({ message: "OTP not requested" });
+
+    if (new Date(user.twoFactorOtpExpires).getTime() < Date.now())
+      return res.status(400).json({ message: "OTP expired" });
+
+    if (String(otp).trim() !== String(user.twoFactorTempOtp).trim())
+      return res.status(400).json({ message: "Invalid OTP" });
+
+    user.twoFactorEnabled = true;
+    user.twoFactorTempOtp = "";
+    user.twoFactorOtpExpires = null;
+    await user.save();
+
+    const safe = await User.findById(user._id).select("-password");
+    return res.json({ message: "2FA enabled", user: safe });
+  } catch (e) {
+    return res.status(500).json({ message: "Failed to enable 2FA" });
+  }
+});
+
+router.post("/2fa/disable", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Require recent reauth (within 5 minutes)
+    const windowMs = 5 * 60 * 1000;
+    if (!user.lastReauthAt || Date.now() - new Date(user.lastReauthAt).getTime() > windowMs) {
+      return res.status(401).json({ message: "Re-auth required to disable 2FA" });
+    }
+
+    user.twoFactorEnabled = false;
+    user.twoFactorTempOtp = "";
+    user.twoFactorOtpExpires = null;
+    await user.save();
+
+    const safe = await User.findById(user._id).select("-password");
+    return res.json({ message: "2FA disabled", user: safe });
+  } catch (e) {
+    return res.status(500).json({ message: "Failed to disable 2FA" });
+  }
 });
 
 /* -------------------- BECOME SELLER -------------------- */
@@ -58,6 +176,14 @@ router.put("/update", protect, async (req, res) => {
     email,
     phone,
     address,
+    addresses,
+    username,
+    bio,
+    location,
+    timezone,
+    twitter,
+    gstNumber,
+    panNumber,
     storeBio,
     instagram,
     website,
@@ -69,6 +195,14 @@ router.put("/update", protect, async (req, res) => {
   if (email !== undefined) update.email = email;
   if (phone !== undefined) update.phone = phone;
   if (address !== undefined) update.address = address;
+  if (Array.isArray(addresses)) update.addresses = addresses;
+  if (username !== undefined) update.username = username;
+  if (bio !== undefined) update.bio = bio;
+  if (location !== undefined) update.location = location;
+  if (timezone !== undefined) update.timezone = timezone;
+  if (twitter !== undefined) update.twitter = twitter;
+  if (gstNumber !== undefined) update.gstNumber = gstNumber;
+  if (panNumber !== undefined) update.panNumber = panNumber;
   if (storeBio !== undefined) update.storeBio = storeBio;
   if (instagram !== undefined) update.instagram = instagram;
   if (website !== undefined) update.website = website;

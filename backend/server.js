@@ -33,15 +33,15 @@ app.use(limiter);
 
 // -------------------- SETTINGS CACHE + MAINTENANCE MODE --------------------
 const Settings = require("./models/Settings");
-let SETTINGS_CACHE = null;
-let SETTINGS_TS = 0;
+global.SETTINGS_CACHE = global.SETTINGS_CACHE || null;
+global.SETTINGS_TS = global.SETTINGS_TS || 0;
 async function getSettingsCached() {
   const now = Date.now();
-  if (!SETTINGS_CACHE || now - SETTINGS_TS > 60_000) {
-    SETTINGS_CACHE = await Settings.findOne({ key: "global" });
-    SETTINGS_TS = now;
+  if (!global.SETTINGS_CACHE || now - global.SETTINGS_TS > 60_000) {
+    global.SETTINGS_CACHE = await Settings.findOne({ key: "global" });
+    global.SETTINGS_TS = now;
   }
-  return SETTINGS_CACHE;
+  return global.SETTINGS_CACHE;
 }
 
 app.use(async (req, res, next) => {
@@ -49,15 +49,18 @@ app.use(async (req, res, next) => {
     const s = await getSettingsCached();
     req.app.locals.settings = s || {};
     // If maintenance mode is on, block non-admin write operations
-    if (
-      s && s.maintenanceMode &&
-      req.method !== "GET" &&
-      !(req.originalUrl || "").startsWith("/api/auth/login") &&
-      !(req.originalUrl || "").startsWith("/api/auth/me")
-    ) {
-      const role = (req.user && req.user.role) || null;
-      if (role !== "admin") {
-        return res.status(503).json({ message: "Site is under maintenance. Please try again later." });
+    if (s && s.maintenanceMode && req.method !== "GET") {
+      const url = (req.originalUrl || "");
+      // Allow auth endpoints for login/me, allow settings and admin routes to remain reachable (they still enforce auth/role)
+      const allowed = url.startsWith("/api/auth/login") ||
+                      url.startsWith("/api/auth/me") ||
+                      url.startsWith("/api/settings") ||
+                      url.startsWith("/api/admin");
+      if (!allowed) {
+        const role = (req.user && req.user.role) || null;
+        if (role !== "admin") {
+          return res.status(503).json({ message: "Site is under maintenance. Please try again later." });
+        }
       }
     }
   } catch (e) {}
@@ -103,6 +106,8 @@ app.use("/api/orders", require("./routes/orderRoutes.js"));
 app.use("/api/contact", require("./routes/contactRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes"));
+app.use("/api/saved-searches", require("./routes/savedSearchRoutes"));
+app.use("/api/wallet", require("./routes/walletRoutes"));
 
 app.use((req, res, next) => {
   res.status(404).json({ message: "Not Found" });
@@ -232,12 +237,20 @@ setInterval(async () => {
       auc.currentPrice = topBid.amount;
       await auc.save();
 
-      // Create order
+      // Create order with tax
+      const S = (app && app.locals && app.locals.settings) || {};
+      const taxRate = Number(S?.taxRatePercent || 0);
+      const baseAmount = Number(topBid.amount || 0);
+      const taxAmount = Math.max(0, Number(((baseAmount * taxRate) / 100).toFixed(2)));
+      const totalAmount = Number((baseAmount + taxAmount).toFixed(2));
       await Order.create({
         buyerId: topBid.userId._id,
         sellerId: auc.sellerId,
         auctionId: auc._id,
-        amount: topBid.amount
+        amount: baseAmount,
+        taxRatePercent: taxRate,
+        taxAmount,
+        totalAmount
       });
 
       // Email winner

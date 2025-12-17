@@ -17,6 +17,9 @@ const auctionSchema = new mongoose.Schema({
 
   currentPrice: { type: Number, default: 0 },
 
+  // Optional reserve price (auction must meet/exceed to be eligible to win)
+  reservePrice: { type: Number, default: null },
+
   quantity: { type: Number, default: 0 },
 
   sellerId: {
@@ -39,6 +42,9 @@ const auctionSchema = new mongoose.Schema({
 
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
+
+  // If a bid comes in the final N seconds, extend by this many seconds
+  softCloseSeconds: { type: Number, default: 120 },
 
   bidsCount: { type: Number, default: 0 },
 

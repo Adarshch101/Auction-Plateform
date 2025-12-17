@@ -3,12 +3,14 @@ import SellerLayout from "../components/seller/SellerLayout";
 import { api } from "../utils/api";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
+import { useSettings } from "../context/SettingsContext";
 
 export default function SellerSettings() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", storeBio: "", instagram: "", website: "" });
   const [loading, setLoading] = useState(true);
   const [passwords, setPasswords] = useState({ oldPassword: "", newPassword: "" });
   const [prefs, setPrefs] = useState({ notifyOnBid: true, notifyOnOrder: true, allowOfferMessages: true, defaultShippingProvider: "Custom", defaultHandlingDays: 3, requireKYC: false, payoutMethod: "bank" });
+  const { settings } = useSettings();
 
   useEffect(() => {
     fetchProfile();
@@ -26,6 +28,16 @@ export default function SellerSettings() {
         instagram: res.data.instagram || "",
         website: res.data.website || "",
       });
+      const p = res.data.prefs || {};
+      setPrefs((prev) => ({
+        notifyOnBid: p.notifyOnBid !== undefined ? p.notifyOnBid : prev.notifyOnBid,
+        notifyOnOrder: p.notifyOnOrder !== undefined ? p.notifyOnOrder : prev.notifyOnOrder,
+        allowOfferMessages: p.allowOfferMessages !== undefined ? p.allowOfferMessages : prev.allowOfferMessages,
+        defaultShippingProvider: p.defaultShippingProvider || prev.defaultShippingProvider,
+        defaultHandlingDays: p.defaultHandlingDays !== undefined ? p.defaultHandlingDays : prev.defaultHandlingDays,
+        requireKYC: p.requireKYC !== undefined ? p.requireKYC : prev.requireKYC,
+        payoutMethod: p.payoutMethod || prev.payoutMethod,
+      }));
     } catch {
       toast.error("Failed to load profile");
     } finally {
@@ -119,7 +131,8 @@ export default function SellerSettings() {
 
               <button
                 onClick={save}
-                className="w-full mt-4 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 transition font-semibold shadow-lg"
+                className="w-full mt-4 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 transition font-semibold shadow-lg disabled:bg-gray-600 disabled:cursor-not-allowed"
+                disabled={!!settings?.maintenanceMode}
               >
                 Save Changes
               </button>
@@ -186,7 +199,8 @@ export default function SellerSettings() {
 
           <button
             onClick={changePassword}
-            className="w-full mt-4 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-600 transition font-semibold shadow-lg"
+            className="w-full mt-4 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-600 transition font-semibold shadow-lg disabled:bg-gray-600 disabled:cursor-not-allowed"
+            disabled={!!settings?.maintenanceMode}
           >
             Update Password
           </button>

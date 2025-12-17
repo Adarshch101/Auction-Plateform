@@ -84,7 +84,7 @@ export default function AdminUsers() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 overflow-x-auto bg-white/10 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl"
+        className="relative z-10 overflow-x-auto no-scrollbar bg-white/10 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl"
       >
         <table className="w-full text-sm">
           <thead className="bg-white/10 border-b border-white/20">

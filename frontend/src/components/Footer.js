@@ -1,6 +1,9 @@
 import { motion } from "framer-motion";
 import { FiMail, FiPhone } from "react-icons/fi";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { api } from "../utils/api";
+import { toast } from "react-hot-toast";
 
 export default function Footer() {
   return (
@@ -35,7 +38,7 @@ export default function Footer() {
       />
 
       {/* === CONTENT GRID === */}
-      <div className="relative z-10 max-w-7xl mx-auto px-8 grid md:grid-cols-4 gap-14">
+      <div className="relative z-10 max-w-7xl mx-auto px-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
 
         {/* BRAND */}
         <motion.div 
@@ -43,7 +46,7 @@ export default function Footer() {
           animate={{ opacity: 1, y: 0 }} 
           transition={{ duration: 0.7 }}
         >
-          <h2 className="text-4xl font-extrabold bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 
+          <h2 className="text-3xl font-extrabold bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 
                           text-transparent bg-clip-text drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]">
             AntiqueXX
           </h2>
@@ -122,6 +125,38 @@ export default function Footer() {
                 ✦ Contact Us
               </Link>
             </li>
+            <li>
+              <Link 
+                to="/support"
+                className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center"
+              >
+                ✦ Support Chat
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/help/buying"
+                className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center"
+              >
+                ✦ Buyer Guide
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/help/buyer-protection"
+                className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center"
+              >
+                ✦ Buyer Protection
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/help/seller-handbook"
+                className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center"
+              >
+                ✦ Seller Handbook
+              </Link>
+            </li>
           </ul>
         </motion.div>
 
@@ -184,6 +219,56 @@ export default function Footer() {
             </li>
           </ul>
         </motion.div>
+
+        {/* LEGAL & POLICIES */}
+        <motion.div
+          initial={{ opacity: 0, y: 35 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.95 }}
+        >
+          <h3 className="text-xl font-semibold text-white">Legal & Policies</h3>
+
+          <ul className="space-y-2 mt-4">
+            <li>
+              <Link to="/legal/terms" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ Terms of Service
+              </Link>
+            </li>
+            <li>
+              <Link to="/legal/privacy" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ Privacy Policy
+              </Link>
+            </li>
+            <li>
+              <Link to="/legal/cookies" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ Cookie Policy
+              </Link>
+            </li>
+            <li>
+              <Link to="/legal/refunds" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ Refund Policy
+              </Link>
+            </li>
+            <li>
+              <Link to="/legal/copyright" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ Copyright / IP
+              </Link>
+            </li>
+            <li>
+              <Link to="/legal/user-agreement" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ User Agreement
+              </Link>
+            </li>
+            <li>
+              <Link to="/legal/accessibility" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+                ✦ Accessibility Statement
+              </Link>
+            </li>
+          </ul>
+        </motion.div>
+
+        {/* UTILITIES */}
+        <UtilitiesSection />
 
         {/* CONTACT SECTION */}
         <motion.div
@@ -252,5 +337,81 @@ export default function Footer() {
         }
       `}</style>
     </footer>
+  );
+}
+
+function UtilitiesSection() {
+  const [email, setEmail] = useState("");
+
+  const onSubscribe = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    (async () => {
+      try {
+        await api.post('/newsletter/subscribe', { email });
+        toast.success('Subscribed successfully');
+        setEmail("");
+      } catch (err) {
+        const msg = err?.response?.data?.message || 'Subscription failed';
+        toast.error(msg);
+      }
+    })();
+  };
+
+  const backToTop = () => {
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      window.scrollTo(0, 0);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 35 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1.0 }}
+    >
+      <h3 className="text-xl font-semibold text-white">Utilities</h3>
+
+      <ul className="space-y-2 mt-4">
+        <li>
+          <Link to="/sitemap" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+            ✦ Sitemap
+          </Link>
+        </li>
+        <li>
+          <button type="button" onClick={backToTop} className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center text-left">
+            ✦ Back to top
+          </button>
+        </li>
+        <li>
+          <Link to="/recently-viewed" className="hover:text-white hover:pl-2 transition-all duration-200 flex items-center">
+            ✦ Recently viewed items
+          </Link>
+        </li>
+      </ul>
+
+      <div className="mt-6">
+        <h4 className="text-sm font-medium text-gray-200">Newsletter</h4>
+        <form onSubmit={onSubscribe} className="mt-2 flex items-center gap-2">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Your email"
+            aria-label="Email address"
+            className="w-full px-3 py-2 rounded-md bg-white/10 text-gray-100 placeholder-gray-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            required
+          />
+          <button
+            type="submit"
+            className="px-3 py-2 rounded-md bg-cyan-600 text-white hover:bg-cyan-500 transition-colors"
+          >
+            Subscribe
+          </button>
+        </form>
+      </div>
+    </motion.div>
   );
 }

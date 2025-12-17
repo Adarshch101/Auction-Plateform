@@ -3,12 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 import { toast } from "react-hot-toast";
 import AdminLayout from "../components/admin/AdminLayout";
+import { useSettings } from "../context/SettingsContext";
 
 export default function AdminEditAuction() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { settings } = useSettings();
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -159,7 +161,7 @@ export default function AdminEditAuction() {
             </div>
 
             <div className="pt-4">
-              <button disabled={saving} onClick={submit} className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-60">
+              <button disabled={saving || !!settings?.maintenanceMode} onClick={submit} className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-60">
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>

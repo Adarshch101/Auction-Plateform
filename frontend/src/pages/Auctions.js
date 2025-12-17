@@ -24,6 +24,32 @@ export default function Auctions() {
   const limit = 12;
 
   const debounceRef = useRef(null);
+  const requestSeq = useRef(0);
+
+  // Compare & Shipping prefs
+  const [compareIds, setCompareIds] = useState([]);
+  const [locationPin, setLocationPin] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("compareList") || "[]");
+      if (Array.isArray(saved)) setCompareIds(saved);
+      const pin = localStorage.getItem("shipPin") || "";
+      setLocationPin(pin);
+    } catch {}
+  }, []);
+
+  function toggleCompare(id) {
+    setCompareIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(0, 4);
+      try { localStorage.setItem("compareList", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  function savePin() {
+    try { localStorage.setItem("shipPin", locationPin.trim()); } catch {}
+  }
 
   const categories = [
     "Artifacts",
@@ -43,11 +69,17 @@ export default function Auctions() {
     return "created_desc";
   }, [sort]);
 
-  // Fetch data (debounced on search)
+  // Scroll to top on page change
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+  }, [page]);
+
+  // Fetch data (debounced on search/page/filter changes) with stale-response guard
   useEffect(() => {
     setLoading(true);
     setError("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const seq = ++requestSeq.current;
     debounceRef.current = setTimeout(() => {
       api
         .get("/auctions", {
@@ -63,6 +95,7 @@ export default function Auctions() {
           },
         })
         .then((res) => {
+          if (seq !== requestSeq.current) return; // ignore stale response
           const data = res.data;
           // Support both paged and array responses
           if (Array.isArray(data)) {
@@ -76,9 +109,13 @@ export default function Auctions() {
           }
         })
         .catch((e) => {
+          if (seq !== requestSeq.current) return; // ignore stale error
           setError(e?.response?.data?.message || "Failed to load auctions");
         })
-        .finally(() => setLoading(false));
+        .finally(() => {
+          if (seq !== requestSeq.current) return;
+          setLoading(false);
+        });
     }, 350);
     return () => clearTimeout(debounceRef.current);
   }, [search, category, apiSort, timeLeft, priceMin, priceMax, page]);
@@ -86,6 +123,25 @@ export default function Auctions() {
   function resetAndRefetch(updater) {
     setPage(1);
     updater();
+  }
+
+  async function saveThisSearch() {
+    try {
+      const name = window.prompt("Name this search", search ? `Results for "${search}"` : "Saved Search");
+      if (!name) return;
+      const query = {
+        q: search || undefined,
+        category: category !== "all" ? category : undefined,
+        priceMin: priceMin || undefined,
+        priceMax: priceMax || undefined,
+        timeLeft: timeLeft || undefined,
+        sort: apiSort,
+      };
+      await api.post('/saved-searches', { name, query, notifications: true });
+      alert('Search saved. You can manage it in Saved Searches.');
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to save search');
+    }
   }
 
   return (
@@ -195,6 +251,13 @@ export default function Auctions() {
           </select>
 
           <FiFilter className="text-2xl text-purple-300 hidden md:block" />
+          <button
+            onClick={saveThisSearch}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 text-sm"
+          >
+            Save this search
+          </button>
+          <a href="/saved-searches" className="text-sm text-cyan-300 underline">Saved Searches</a>
         </div>
       </div>
 
@@ -255,6 +318,28 @@ export default function Auctions() {
                 {a.status.toUpperCase()}
               </span>
 
+              {/* Compare checkbox */}
+              <label className="absolute top-3 right-3 bg-black/40 backdrop-blur px-2 py-1 rounded-lg text-xs flex items-center gap-1 cursor-pointer select-none border border-white/10">
+                <input
+                  type="checkbox"
+                  checked={compareIds.includes(a._id)}
+                  onChange={() => toggleCompare(a._id)}
+                />
+                Compare
+              </label>
+
+              {/* Shipping estimate chip (if PIN set) */}
+              {locationPin && (
+                <span className="absolute bottom-3 right-3 px-2 py-1 rounded-lg text-xs bg-white/10 border border-white/20">
+                  {(() => {
+                    const zone = /\d{6}/.test(locationPin) ? 1 : 2;
+                    const weight = Math.ceil(Number(a.weightKg || 2));
+                    const base = 120; const perKg = zone === 1 ? 60 : 90;
+                    return `Est. ₹${base + perKg * weight}`;
+                  })()}
+                </span>
+              )}
+
             </div>
 
             {/* Info */}
@@ -289,20 +374,50 @@ export default function Auctions() {
       {!loading && !error && pages > 1 && (
         <div className="max-w-7xl mx-auto mt-10 flex justify-center items-center gap-4">
           <button
+            type="button"
             disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => {
+              console.debug('[Auctions] Prev clicked. Current page=', page);
+              setPage((p) => Math.max(1, p - 1));
+            }}
             className="px-4 py-2 rounded-lg bg-white/10 disabled:opacity-40"
           >
             Prev
           </button>
           <span className="text-sm text-gray-300">Page {page} of {pages} • {total} results</span>
           <button
+            type="button"
             disabled={page >= pages}
-            onClick={() => setPage((p) => Math.min(pages, p + 1))}
+            onClick={() => {
+              console.debug('[Auctions] Next clicked. Current page=', page, 'of', pages);
+              setPage((p) => p + 1);
+            }}
             className="px-4 py-2 rounded-lg bg-white/10 disabled:opacity-40"
           >
             Next
           </button>
+        </div>
+      )}
+      {/* Compare bar & shipping PIN (page-scoped, at page bottom) */}
+      {compareIds.length > 0 && (
+        <div className="w-full px-6 mt-8 mb-8">
+          <div className="max-w-7xl mx-auto flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 backdrop-blur">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-300">Compare:</span>
+              <span className="text-cyan-300 font-semibold">{compareIds.length}</span>
+              <a href="/compare" className="ml-2 px-3 py-1 rounded-lg bg-cyan-600/80 hover:bg-cyan-600 text-white text-sm">Open</a>
+            </div>
+            <div className="ml-auto flex items-center gap-2 text-sm">
+              <span className="text-gray-300">PIN/Country:</span>
+              <input
+                value={locationPin}
+                onChange={(e)=> setLocationPin(e.target.value)}
+                onBlur={savePin}
+                placeholder="560001 or USA"
+                className="w-36 bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

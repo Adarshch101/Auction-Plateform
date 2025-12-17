@@ -111,6 +111,7 @@ export default function Notifications() {
                 </select>
                 <div className="ml-auto flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page <= 1}
                     className="px-3 py-2 bg-white/10 rounded-md disabled:opacity-50"
@@ -119,6 +120,7 @@ export default function Notifications() {
                   </button>
                   <span className="text-sm">Page {page} of {pages}</span>
                   <button
+                    type="button"
                     onClick={() => setPage((p) => Math.min(pages, p + 1))}
                     disabled={page >= pages}
                     className="px-3 py-2 bg-white/10 rounded-md disabled:opacity-50"

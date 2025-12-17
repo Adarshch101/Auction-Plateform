@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { useSettings } from "../context/SettingsContext";
 import { useFormatCurrency } from "../utils/currency";
+import Modal from "../components/ui/Modal";
 
 let socket;
 
@@ -29,6 +30,14 @@ export default function AuctionDetails() {
   const { format } = useFormatCurrency();
   const auctionCategories = new Set(["antique", "vintage", "collectables"]);
   const [spinIdx, setSpinIdx] = useState(0);
+  const [mediaTab, setMediaTab] = useState('image'); // image | video | spin
+  const [myMaxBid, setMyMaxBid] = useState(null);
+  const [showMaxModal, setShowMaxModal] = useState(false);
+  const [maxInput, setMaxInput] = useState("");
+  const [showZoom, setShowZoom] = useState(false);
+  const [outbid, setOutbid] = useState(false);
+  const [urgent, setUrgent] = useState(false);
+  const [wishPulse, setWishPulse] = useState(false);
 
   // FETCH DATA
   useEffect(() => {
@@ -40,6 +49,18 @@ export default function AuctionDetails() {
 
     const onBidPlaced = (data) => {
       if (data?.auctionId === id || data?.id === id) {
+        // If another user bids and surpasses/equals my max, consider me outbid
+        const myId = auth?.userId || localStorage.getItem("userId");
+        if (myId && String(data.userId) !== String(myId)) {
+          if (myMaxBid && Number(data.amount) >= Number(myMaxBid)) {
+            setOutbid(true);
+            toast((t) => (
+              <span>
+                You are outbid. <button onClick={() => { raiseByIncrement(); toast.dismiss(t.id); }} className="underline text-cyan-300">Raise +increment</button>
+              </span>
+            ));
+          }
+        }
         setAuction((prev) => prev ? { ...prev, currentPrice: data.amount } : prev);
         setBids((prev) => [{ amount: data.amount, userId: data.userId }, ...prev]);
       }
@@ -73,6 +94,20 @@ export default function AuctionDetails() {
   const fetchData = async () => {
     const res = await api.get(`/auctions/${id}`);
     setAuction(res.data);
+    try {
+      const item = {
+        id: res?.data?._id || id,
+        title: res?.data?.title || "",
+        image: Array.isArray(res?.data?.images) && res.data.images.length ? res.data.images[0] : (res?.data?.image || ""),
+        price: Number(res?.data?.currentPrice || 0),
+        viewedAt: Date.now()
+      };
+      const raw = localStorage.getItem("recently_viewed");
+      const list = Array.isArray(JSON.parse(raw || "null")) ? JSON.parse(raw) : [];
+      const filtered = list.filter((x) => (x.id || x._id) !== item.id);
+      const updated = [item, ...filtered].slice(0, 20);
+      localStorage.setItem("recently_viewed", JSON.stringify(updated));
+    } catch {}
     setSpinIdx(0);
     // Compute drift using server date header if available
     try {
@@ -94,10 +129,16 @@ export default function AuctionDetails() {
     // Fetch personal bids when logged in
     try {
       if (auth?.token) {
+        // Load my max bid for proxy bidding UI
+        try {
+          const mb = await api.get(`/bids/${id}/max`);
+          setMyMaxBid(mb?.data?.maxAmount ?? null);
+        } catch {}
         const myBidsRes = await api.get(`/bids/${id}/me`);
         setMyBids(myBidsRes.data || []);
       } else {
         setMyBids([]);
+        setMyMaxBid(null);
       }
     } catch (err) {
       setMyBids([]);
@@ -137,11 +178,16 @@ export default function AuctionDetails() {
         return;
       }
 
-      const h = Math.floor(diff / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft(`${h}h ${m}m ${s}s`);
+      const totalSeconds = Math.floor(diff / 1000);
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      if (h > 0) {
+        setTimeLeft(`${h}h ${m}m ${s}s`);
+      } else {
+        setTimeLeft(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      }
+      setUrgent(totalSeconds <= 60);
     }, 1000);
   };
 
@@ -202,6 +248,15 @@ export default function AuctionDetails() {
     navigate(`/payment/${id}`);
   };
 
+  // Raise current bid by increment quickly
+  const raiseByIncrement = async () => {
+    const inc = Number(settings?.bidIncrement || 1);
+    const next = Number(auction?.currentPrice || 0) + inc;
+    setBid(String(next));
+    await placeBid();
+    setOutbid(false);
+  };
+
   // START CHAT WITH SELLER
   const startChat = async () => {
     try {
@@ -241,6 +296,33 @@ export default function AuctionDetails() {
     if (insure) cost += Math.ceil((Number(auction?.currentPrice || 0)) * 0.01);
     setShipQuote({ cost, eta: zone === 1 ? "2-4 days" : "4-7 days" });
   }
+
+  // Open modal to set/update proxy max bid (component scope)
+  const openMaxBidModal = () => {
+    if (!auth?.token) return navigate("/login");
+    setMaxInput(myMaxBid ? String(myMaxBid) : "");
+    setShowMaxModal(true);
+  };
+
+  const saveMaxBid = async () => {
+    try {
+      const maxAmount = Number(maxInput);
+      if (!maxAmount || Number.isNaN(maxAmount)) {
+        toast.error("Enter a valid amount");
+        return;
+      }
+      if (!(maxAmount > (auction?.currentPrice || 0))) {
+        toast.error("Max must exceed current price");
+        return;
+      }
+      await api.post(`/bids/${id}/max`, { maxAmount });
+      setMyMaxBid(maxAmount);
+      toast.success("Max bid saved");
+      setShowMaxModal(false);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to save max bid");
+    }
+  };
 
   return (
     <div className="relative pt-24 px-6 max-w-7xl mx-auto text-white overflow-hidden">
@@ -286,36 +368,71 @@ export default function AuctionDetails() {
       </p>
 
       {/* MAIN GRID */}
-      <div className="relative z-10 mt-10 grid lg:grid-cols-2 gap-10">
+      <div className="relative z-10 mt-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
 
         {/* IMAGE + STATUS */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="p-6 rounded-3xl bg-white/5 backdrop-blur-xl border border-purple-500/20 
-                     shadow-[0_0_35px_rgba(150,0,255,0.25)] relative overflow-hidden"
+                     shadow-[0_0_35px_rgba(150,0,255,0.25)] relative overflow-hidden min-w-0"
         >
           {/* Hologram overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-cyan-500/10 pointer-events-none" />
 
           {(() => {
-            const imgs = Array.isArray(auction.images) && auction.images.length > 0 ? auction.images : [auction.image];
-            const current = imgs[Math.min(spinIdx, imgs.length - 1)];
+            const media = Array.isArray(auction.media) ? auction.media : [];
+            const images = media.filter(m => m?.type === 'image').map(m => m.url);
+            const videos = media.filter(m => m?.type === 'video').map(m => m.url);
+            const spins  = media.filter(m => m?.type === 'spin').map(m => m.url);
+            const imgs = images.length > 0 ? images : (Array.isArray(auction.images) && auction.images.length ? auction.images : [auction.image]);
+
+            const hasVideo = videos.length > 0;
+            const hasSpin = spins.length > 0;
+
+            const tabs = [
+              { key: 'image', label: `Images (${imgs.length})`, show: imgs && imgs.length },
+              { key: 'video', label: `Video${hasVideo && videos.length>1 ? 's' : ''}${hasVideo? ` (${videos.length})`: ''}`, show: hasVideo },
+              { key: 'spin',  label: '360°', show: hasSpin },
+            ].filter(t=>t.show);
+
             return (
               <div>
-                <img
-                  src={current}
-                  className="rounded-2xl shadow-[0_0_25px_rgba(0,200,255,0.25)] w-full"
-                  alt={auction.title}
-                />
-                {imgs.length > 1 && (
-                  <div className="flex gap-2 mt-3 overflow-x-auto">
-                    {imgs.map((u, i) => (
-                      <button key={i} onClick={() => setSpinIdx(i)} className={`w-16 h-16 rounded-lg overflow-hidden border ${i===spinIdx?"border-cyan-400":"border-white/10"}`}>
-                        <img src={u} className="w-full h-full object-cover" />
+                {tabs.length > 1 && (
+                  <div className="mb-3 flex gap-2">
+                    {tabs.map(t => (
+                      <button key={t.key} onClick={()=> setMediaTab(t.key)} className={`px-3 py-1.5 rounded-lg text-sm border ${mediaTab===t.key ? 'bg-cyan-600/30 border-cyan-400/50' : 'bg-white/5 border-white/10'}`}>
+                        {t.label}
                       </button>
                     ))}
                   </div>
+                )}
+
+                {mediaTab === 'video' && hasVideo ? (
+                  <video src={videos[0]} controls className="w-full rounded-2xl border border-white/10" />
+                ) : mediaTab === 'spin' && hasSpin ? (
+                  <div className="w-full h-80 rounded-2xl border border-white/10 bg-black/30 flex items-center justify-center text-sm text-gray-300">
+                    360° viewer coming soon
+                  </div>
+                ) : (
+                  <>
+                    <img
+                      src={imgs[Math.min(spinIdx, imgs.length - 1)]}
+                      className="rounded-2xl shadow-[0_0_25px_rgba(0,200,255,0.25)] w-full cursor-zoom-in"
+                      loading="lazy"
+                      onClick={() => setShowZoom(true)}
+                      alt={auction.title}
+                    />
+                    {imgs.length > 1 && (
+                      <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+                        {imgs.map((u, i) => (
+                          <button key={i} onClick={() => setSpinIdx(i)} className={`w-16 h-16 rounded-lg overflow-hidden border ${i===spinIdx?"border-cyan-400":"border-white/10"}`}>
+                            <img src={u} loading="lazy" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             );
@@ -327,7 +444,7 @@ export default function AuctionDetails() {
               {auction.status.toUpperCase()}
             </span>
 
-            <span className="text-lg text-cyan-300 font-semibold">
+            <span className={`text-lg font-semibold ${urgent ? 'text-red-300 animate-pulse' : 'text-cyan-300'}`}>
               {timeLeft === "Ended" ? "Auction Ended" : `Ends in: ${timeLeft}`}
             </span>
           </div>
@@ -335,8 +452,8 @@ export default function AuctionDetails() {
           {/* Watchlist */}
           {auth?.token && (
             <button
-              onClick={toggleWishlist}
-              className={`mt-4 px-4 py-2 rounded-lg border ${inWishlist ? "bg-pink-600/60 border-pink-400" : "bg-white/10 border-white/20"}`}
+              onClick={async () => { await toggleWishlist(); setWishPulse(true); setTimeout(()=>setWishPulse(false), 400); }}
+              className={`mt-4 px-4 py-2 rounded-lg border transform transition ${wishPulse ? 'scale-110' : ''} ${inWishlist ? "bg-pink-600/60 border-pink-400" : "bg-white/10 border-white/20"}`}
             >
               {inWishlist ? "Remove from Watchlist" : "Add to Watchlist"}
             </button>
@@ -364,11 +481,21 @@ export default function AuctionDetails() {
           initial={{ x: 35, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           className="p-8 rounded-3xl bg-white/5 backdrop-blur-2xl 
-                     border border-purple-500/20 shadow-[0_0_35px_rgba(170,0,255,0.2)] space-y-6"
+                     border border-purple-500/20 shadow-[0_0_35px_rgba(170,0,255,0.2)] space-y-6 min-w-0"
         >
           <h2 className="text-3xl font-bold">
             {isAuction ? "Highest Bid" : "Price"}: <span className="text-cyan-400">{format(auction.currentPrice)}</span>
           </h2>
+          {isAuction && (
+            <div className="text-xs text-gray-300 flex flex-col gap-1">
+              <span>Soft close active: bids in the last {Number(auction?.softCloseSeconds || 120)}s extend the timer.</span>
+              {typeof auction?.reservePrice === 'number' && auction?.reservePrice > 0 && (
+                <span className={`${Number(auction.currentPrice) >= Number(auction.reservePrice) ? 'text-emerald-300' : 'text-yellow-300'}`}>
+                  {Number(auction.currentPrice) >= Number(auction.reservePrice) ? 'Reserve met' : `Reserve not met (₹${format(auction.reservePrice).replace(/[^0-9₹.,]/g,'')})`}
+                </span>
+              )}
+            </div>
+          )}
           {!isAuction && fairLow && fairHigh && (
             <p className="text-sm text-emerald-300">Fair price range: {format(fairLow)} – {format(fairHigh)}</p>
           )}
@@ -404,7 +531,8 @@ export default function AuctionDetails() {
               <button
                 onClick={buyNow}
                 className="w-full py-3 text-lg rounded-xl bg-gradient-to-r from-purple-600 to-pink-500
-                           shadow-[0_0_25px_rgba(200,0,255,0.4)] hover:brightness-110 transition"
+                           shadow-[0_0_25px_rgba(200,0,255,0.4)] hover:brightness-110 transition disabled:bg-gray-700 disabled:cursor-not-allowed"
+                disabled={!!settings?.maintenanceMode}
               >
                 Buy Now for {format(auction.buyNowPrice)}
               </button>
@@ -420,23 +548,40 @@ export default function AuctionDetails() {
 
           {/* BID INPUT (only for auction categories) */}
           {isAuction && auth.token && auction.status === "active" && (
-            <div className="mt-6 flex gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <input
                 type="number"
                 value={bid}
                 onChange={(e) => setBid(e.target.value)}
                 placeholder="Enter your bid"
-                className="flex-grow bg-black/30 p-3 rounded-xl border border-purple-500/20 
+                className="w-full sm:flex-grow bg-black/30 p-3 rounded-xl border border-purple-500/20 
                            text-purple-200 shadow-[0_0_15px_rgba(150,0,255,0.15)] outline-none focus:border-cyan-400"
               />
               <button
                 onClick={placeBid}
-                className="px-7 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
-                           shadow-[0_0_25px_rgba(0,200,255,0.4)] hover:brightness-110 transition"
+                className="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
+                           shadow-[0_0_25px_rgba(0,200,255,0.4)] hover:brightness-110 transition disabled:bg-gray-700 disabled:cursor-not-allowed"
+                disabled={!!settings?.maintenanceMode}
               >
                 Place Bid
               </button>
+              <button
+                onClick={openMaxBidModal}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 disabled:bg-gray-700 disabled:cursor-not-allowed"
+                disabled={!!settings?.maintenanceMode}
+              >
+                Set Max Bid
+              </button>
             </div>
+          )}
+          {isAuction && auth.token && outbid && (
+            <div className="mt-3 p-3 rounded-lg bg-red-500/15 border border-red-400/30 text-red-200 flex items-center justify-between">
+              <span>You have been outbid.</span>
+              <button onClick={raiseByIncrement} className="px-3 py-1 rounded bg-red-600 hover:bg-red-700">Raise +increment</button>
+            </div>
+          )}
+          {isAuction && auth.token && (
+            <p className="text-xs text-gray-400 mt-1">{myMaxBid ? `Your max bid: ₹${myMaxBid}` : 'You have no max bid set.'}</p>
           )}
           {isAuction && settings?.bidIncrement ? (
             <p className="text-xs text-gray-400 mt-2">
@@ -452,7 +597,7 @@ export default function AuctionDetails() {
               <p className="text-gray-400 mt-2">No bids yet.</p>
             )}
 
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-2 mt-3">
+            <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar pr-2 mt-3">
               {bids.map((b, i) => (
                 <motion.div
                   key={i}
@@ -474,7 +619,7 @@ export default function AuctionDetails() {
               {myBids.length === 0 && (
                 <p className="text-gray-400 mt-2">You have not placed any bids yet.</p>
               )}
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-2 mt-3">
+              <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar pr-2 mt-3">
                 {myBids.map((b, i) => (
                   <motion.div
                     key={i}
@@ -529,11 +674,18 @@ export default function AuctionDetails() {
         </motion.div>
       </div>
 
+      {/* Sticky mini-timer for urgency */}
+      {isAuction && urgent && auction?.status === 'active' && timeLeft !== 'Ended' && (
+        <div className="fixed bottom-6 right-6 z-40 px-4 py-2 rounded-full bg-red-600 text-white shadow-lg animate-pulse">
+          Ends in: {timeLeft}
+        </div>
+      )}
+
       {/* RELATED AUCTIONS */}
       <div className="relative z-10 mt-20">
         <h2 className="text-3xl font-bold mb-6 text-purple-200">You May Also Like</h2>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {related.map((r) => (
             <motion.div
               key={r._id}
@@ -541,13 +693,25 @@ export default function AuctionDetails() {
               className="bg-white/5 p-5 rounded-xl border border-purple-500/20 
                          shadow-[0_0_25px_rgba(160,0,255,0.25)] hover:bg-white/10 transition"
             >
-              <img src={r.image} className="rounded-xl h-40 w-full object-cover" />
+              <img src={r.image} loading="lazy" className="rounded-xl h-40 w-full object-cover" />
               <h3 className="text-lg font-bold mt-3">{r.title}</h3>
               <p className="text-cyan-300">{format(r.currentPrice)}</p>
             </motion.div>
           ))}
         </div>
       </div>
+
+      {/* Image Zoom Modal */}
+      <Modal open={showZoom} onClose={() => setShowZoom(false)}>
+        <h3 className="text-xl font-bold mb-3">Image Preview</h3>
+        {(() => {
+          const imgs = Array.isArray(auction.images) && auction.images.length > 0 ? auction.images : [auction.image];
+          const current = imgs[Math.min(spinIdx, imgs.length - 1)];
+          return (
+            <img src={current} className="w-full max-h-[70vh] object-contain rounded-xl border border-white/10" />
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

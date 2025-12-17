@@ -16,6 +16,18 @@ const settingsSchema = new mongoose.Schema(
     maxUploadMB: { type: Number, default: 5 },
     enableRegistrations: { type: Boolean, default: true },
     requireKYCForSellers: { type: Boolean, default: false },
+    // Wallet-related feature flags
+    walletHighValueThreshold: { type: Number, default: 100000 },
+    requireKYCForHighValue: { type: Boolean, default: false },
+    requireOTPForWithdrawals: { type: Boolean, default: false },
+    // Panic mode: instantly freeze withdrawals
+    freezeWithdrawals: { type: Boolean, default: false },
+    // Anti-sniping and platform limits/support
+    enableSnipingProtection: { type: Boolean, default: true },
+    snipingExtensionMinutes: { type: Number, default: 2 },
+    maxAuctionsPerSeller: { type: Number, default: 50 },
+    supportEmail: { type: String, default: "support@example.com" },
+    taxRatePercent: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

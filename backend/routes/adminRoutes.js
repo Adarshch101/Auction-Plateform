@@ -3,6 +3,7 @@ const router = express.Router();
 
 const { protect } = require("../middlewares/authMiddleware.js");
 const { getAdminStats, getAdminInsights, updateUserRole, deleteUser, getUser } = require("../controllers/adminController.js");
+const { getAuditLogs } = require("../controllers/auditController.js");
 const User = require("../models/User.js");
 const Auction = require("../models/Auction.js");
 const Notification = require("../models/Notification.js");
@@ -23,6 +24,7 @@ const adminOnly = (req, res, next) => {
    ============================ */
 router.get("/stats", protect, adminOnly, getAdminStats);
 router.get("/insights", protect, adminOnly, getAdminInsights);
+router.get("/audit-logs", protect, adminOnly, getAuditLogs);
 
 /* ============================
       GET ALL USERS

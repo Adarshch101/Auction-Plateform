@@ -20,6 +20,15 @@ export default function AdminSettings() {
     maxUploadMB: 5,
     enableRegistrations: true,
     requireKYCForSellers: false,
+    walletHighValueThreshold: 100000,
+    requireKYCForHighValue: false,
+    requireOTPForWithdrawals: false,
+    freezeWithdrawals: false,
+    enableSnipingProtection: true,
+    snipingExtensionMinutes: 2,
+    maxAuctionsPerSeller: 50,
+    supportEmail: "support@example.com",
+    taxRatePercent: 0,
   });
 
   const [saving, setSaving] = useState(false);
@@ -175,6 +184,77 @@ export default function AdminSettings() {
           onChange={(val) => handleChange("requireKYCForSellers", val)}
           description="Show verification prompts and badge for verified sellers"
         />
+
+        <div className="pt-4">
+          <h2 className="text-2xl font-bold mb-4">Wallet & Security</h2>
+          <SettingInput
+            label="High-Value Transaction Threshold (₹)"
+            value={settings.walletHighValueThreshold}
+            type="number"
+            onChange={(val) => handleChange("walletHighValueThreshold", val)}
+            description="Transactions above this amount are considered high-value"
+          />
+          <SettingToggle
+            label="Require KYC for High-Value Transactions"
+            checked={settings.requireKYCForHighValue}
+            onChange={(val) => handleChange("requireKYCForHighValue", val)}
+            description="Buyers must complete KYC to transact over the threshold"
+          />
+          <SettingToggle
+            label="Require OTP for Withdrawals"
+            checked={settings.requireOTPForWithdrawals}
+            onChange={(val) => handleChange("requireOTPForWithdrawals", val)}
+            description="Adds an OTP verification step for wallet withdrawals"
+          />
+          <SettingToggle
+            label="Freeze Withdrawals (Panic Mode)"
+            checked={settings.freezeWithdrawals}
+            onChange={(val) => handleChange("freezeWithdrawals", val)}
+            description="Instantly blocks all withdrawals for non-admins"
+          />
+        </div>
+
+        <div className="pt-4">
+          <h2 className="text-2xl font-bold mb-4">Anti-Sniping</h2>
+          <SettingToggle
+            label="Enable Sniping Protection"
+            checked={settings.enableSnipingProtection}
+            onChange={(val) => handleChange("enableSnipingProtection", val)}
+            description="Extend end time if a bid is placed near auction close"
+          />
+          <SettingInput
+            label="Sniping Extension (minutes)"
+            value={settings.snipingExtensionMinutes}
+            type="number"
+            onChange={(val) => handleChange("snipingExtensionMinutes", val)}
+            description="Number of minutes to extend when sniping is detected"
+          />
+        </div>
+
+        <div className="pt-4">
+          <h2 className="text-2xl font-bold mb-4">Platform Limits & Support</h2>
+          <SettingInput
+            label="Max Auctions Per Seller"
+            value={settings.maxAuctionsPerSeller}
+            type="number"
+            onChange={(val) => handleChange("maxAuctionsPerSeller", val)}
+            description="Upper limit of concurrent auctions a seller can host"
+          />
+          <SettingInput
+            label="Support Email"
+            value={settings.supportEmail}
+            type="text"
+            onChange={(val) => handleChange("supportEmail", val)}
+            description="Contact email displayed in help and system emails"
+          />
+          <SettingInput
+            label="Tax Rate (%)"
+            value={settings.taxRatePercent}
+            type="number"
+            onChange={(val) => handleChange("taxRatePercent", val)}
+            description="Platform-wide default tax percentage (if applicable)"
+          />
+        </div>
       </div>
 
       <motion.button

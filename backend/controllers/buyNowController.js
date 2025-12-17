@@ -50,6 +50,15 @@ exports.buyNow = async (req, res) => {
     return res.status(400).json({ message: "Shipping address is incomplete" });
   }
 
+  // KYC enforcement for high-value direct purchases
+  const S = (req.app && req.app.locals && req.app.locals.settings) || {};
+  const threshold = Number(S?.walletHighValueThreshold || 0);
+  const requireKYCForHighValue = !!S?.requireKYCForHighValue;
+  const price = Number(auction.buyNowPrice || 0);
+  if (requireKYCForHighValue && threshold > 0 && price > threshold && !req.user.kycVerified) {
+    return res.status(400).json({ message: "KYC required for high-value purchase" });
+  }
+
   // For direct-sale items, allow multiple purchases. Do not change status or winner.
   // Keep the listing active and record a new order per purchase.
 
@@ -57,11 +66,19 @@ exports.buyNow = async (req, res) => {
     return res.status(400).json({ message: "Out of stock" });
   }
 
+  // Tax computation
+  const taxRate = Number(S?.taxRatePercent || 0);
+  const taxAmount = Math.max(0, Number(((price * taxRate) / 100).toFixed(2)));
+  const totalAmount = Number((price + taxAmount).toFixed(2));
+
   const order = await Order.create({
     buyerId,
     sellerId: auction.sellerId._id,
     auctionId: auction._id,
-    amount: auction.buyNowPrice,
+    amount: price,
+    taxRatePercent: taxRate,
+    taxAmount,
+    totalAmount,
     shippingName,
     addressLine1,
     addressLine2: addressLine2 || "",

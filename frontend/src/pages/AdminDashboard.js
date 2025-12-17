@@ -80,73 +80,77 @@ export default function AdminDashboard() {
 
 function OrdersTable({ orders, format }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-gray-300 border-b border-white/10">
-          <th className="py-2">Item</th>
-          <th>Buyer</th>
-          <th>Seller</th>
-          <th>Amount</th>
-          <th>Address</th>
-          <th>Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        {orders.slice(0, 10).map((o) => (
-          <tr key={o._id} className="border-b border-white/5">
-            <td className="py-3">{o.auctionId?.title}</td>
-            <td>{o.buyerId?.name}</td>
-            <td>{o.sellerId?.name}</td>
-            <td>{format ? format(o.amount) : o.amount}</td>
-            <td className="max-w-xs truncate">
-              {[
-                o.shippingName,
-                o.addressLine1,
-                o.addressLine2,
-                o.city,
-                o.state,
-                o.postalCode,
-                o.country,
-                o.phone,
-              ].filter(Boolean).join(", ")}
-            </td>
-            <td>{new Date(o.createdAt).toLocaleString()}</td>
+    <div className="overflow-x-auto no-scrollbar">
+      <table className="w-full min-w-[800px] text-sm">
+        <thead>
+          <tr className="text-left text-gray-300 border-b border-white/10">
+            <th className="py-2">Item</th>
+            <th>Buyer</th>
+            <th>Seller</th>
+            <th>Amount</th>
+            <th>Address</th>
+            <th>Date</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {orders.slice(0, 10).map((o) => (
+            <tr key={o._id} className="border-b border-white/5">
+              <td className="py-3">{o.auctionId?.title}</td>
+              <td>{o.buyerId?.name}</td>
+              <td>{o.sellerId?.name}</td>
+              <td>{format ? format(o.amount) : o.amount}</td>
+              <td className="max-w-xs truncate">
+                {[
+                  o.shippingName,
+                  o.addressLine1,
+                  o.addressLine2,
+                  o.city,
+                  o.state,
+                  o.postalCode,
+                  o.country,
+                  o.phone,
+                ].filter(Boolean).join(", ")}
+              </td>
+              <td>{new Date(o.createdAt).toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function SellerRankingsTable({ rows }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-gray-300 border-b border-white/10">
-          <th className="py-2">Rank</th>
-          <th>Seller</th>
-          <th>Items Sold</th>
-          <th>Revenue</th>
-          <th>Auctions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.sellerId} className="border-b border-white/5">
-            <td className="py-3 font-bold">#{r.rank}</td>
-            <td>
-              <div className="flex flex-col">
-                <span>{r.name}</span>
-                <span className="text-xs text-gray-400">{r.email}</span>
-              </div>
-            </td>
-            <td>{r.soldCount}</td>
-            <td>₹{r.revenue}</td>
-            <td>{r.auctionsHosted}</td>
+    <div className="overflow-x-auto no-scrollbar">
+      <table className="w-full min-w-[700px] text-sm">
+        <thead>
+          <tr className="text-left text-gray-300 border-b border-white/10">
+            <th className="py-2">Rank</th>
+            <th>Seller</th>
+            <th>Items Sold</th>
+            <th>Revenue</th>
+            <th>Auctions</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.sellerId} className="border-b border-white/5">
+              <td className="py-3 font-bold">#{r.rank}</td>
+              <td>
+                <div className="flex flex-col">
+                  <span>{r.name}</span>
+                  <span className="text-xs text-gray-400">{r.email}</span>
+                </div>
+              </td>
+              <td>{r.soldCount}</td>
+              <td>₹{r.revenue}</td>
+              <td>{r.auctionsHosted}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -367,6 +371,7 @@ function SellerRankingsTable({ rows }) {
 
           <div className="flex items-center gap-4 mt-4">
             <button
+              type="button"
               className="px-3 py-2 bg-white/10 rounded-md hover:bg-white/20 disabled:opacity-50"
               disabled={rankPage <= 1}
               onClick={() => setRankPage((p) => Math.max(1, p - 1))}
@@ -375,6 +380,7 @@ function SellerRankingsTable({ rows }) {
             </button>
             <span className="text-sm">Page {rankPage} of {rankPages}</span>
             <button
+              type="button"
               className="px-3 py-2 bg-white/10 rounded-md hover:bg-white/20 disabled:opacity-50"
               disabled={rankPage >= rankPages}
               onClick={() => setRankPage((p) => Math.min(rankPages, p + 1))}
@@ -481,56 +487,60 @@ function TableCard({ title, children }) {
 
 function UserTable({ users }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-gray-300 border-b border-white/10">
-          <th className="py-2">Name</th>
-          <th>Email</th>
-          <th>Role</th>
-        </tr>
-      </thead>
-      <tbody>
-        {users.slice(0, 7).map((u) => (
-          <tr key={u._id} className="border-b border-white/5">
-            <td className="py-3">{u.name}</td>
-            <td>{u.email}</td>
-            <td className="capitalize text-cyan-300">{u.role}</td>
+    <div className="overflow-x-auto no-scrollbar">
+      <table className="w-full min-w-[600px] text-sm">
+        <thead>
+          <tr className="text-left text-gray-300 border-b border-white/10">
+            <th className="py-2">Name</th>
+            <th>Email</th>
+            <th>Role</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {users.slice(0, 7).map((u) => (
+            <tr key={u._id} className="border-b border-white/5">
+              <td className="py-3">{u.name}</td>
+              <td>{u.email}</td>
+              <td className="capitalize text-cyan-300">{u.role}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function AuctionTable({ auctions, format }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-gray-300 border-b border-white/10">
-          <th className="py-2">Title</th>
-          <th>Status</th>
-          <th>Current Price</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {auctions.slice(0, 7).map((a) => (
-          <tr key={a._id} className="border-b border-white/5">
-            <td className="py-3">{a.title}</td>
-            <td className="capitalize text-emerald-300">{a.status}</td>
-            <td>{format ? format(a.currentPrice) : a.currentPrice}</td>
-            <td>
-              <button
-                className="px-3 py-1 bg-red-600 text-xs rounded hover:bg-red-700"
-                onClick={() => deleteAuction(a._id)}
-              >
-                Delete
-              </button>
-            </td>
+    <div className="overflow-x-auto no-scrollbar">
+      <table className="w-full min-w-[600px] text-sm">
+        <thead>
+          <tr className="text-left text-gray-300 border-b border-white/10">
+            <th className="py-2">Title</th>
+            <th>Status</th>
+            <th>Current Price</th>
+            <th>Action</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {auctions.slice(0, 7).map((a) => (
+            <tr key={a._id} className="border-b border-white/5">
+              <td className="py-3">{a.title}</td>
+              <td className="capitalize text-emerald-300">{a.status}</td>
+              <td>{format ? format(a.currentPrice) : a.currentPrice}</td>
+              <td>
+                <button
+                  className="px-3 py-1 bg-red-600 text-xs rounded hover:bg-red-700"
+                  onClick={() => deleteAuction(a._id)}
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

@@ -2,6 +2,8 @@ const Auction = require("../models/Auction");
 const cloudinary = require("../config/cloudinary");
 const { createNotification } = require("./notificationController");
 const User = require("../models/User");
+const SavedSearch = require("../models/SavedSearch");
+const AuditLog = require("../models/AuditLog");
 
 // GET all auctions
 exports.getAllAuctions = async (req, res) => {
@@ -191,6 +193,20 @@ exports.createAuction = async (req, res) => {
 
     const starting = startingPrice || buyNowPrice;
 
+    // Enforce max auctions per seller (only for auction categories)
+    if (isAuction) {
+      const maxPerSeller = Number(S.maxAuctionsPerSeller || 0);
+      if (maxPerSeller > 0 && req.user && req.user._id) {
+        const activeCount = await Auction.countDocuments({
+          sellerId: req.user._id,
+          status: { $in: ["active", "upcoming"] },
+        });
+        if (activeCount >= maxPerSeller) {
+          return res.status(403).json({ message: `Seller limit reached: max ${maxPerSeller} concurrent auctions` });
+        }
+      }
+    }
+
     // Enforce max auction duration when start/end provided
     let startAt = startTime ? new Date(startTime) : new Date();
     let endAt = endTime ? new Date(endTime) : new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -268,6 +284,59 @@ exports.createAuction = async (req, res) => {
       } catch {}
     }
 
+    try {
+      // Saved Searches: notify matching users
+      try {
+        const searches = await SavedSearch.find({ notifications: true });
+        for (const s of searches) {
+          const q = s.query || {};
+          // Basic matching on category, q in title, and price range against currentPrice
+          let ok = true;
+          if (q.category && String(q.category).toLowerCase() !== String(auction.category).toLowerCase()) ok = false;
+          if (ok && q.q) {
+            const term = String(q.q).toLowerCase();
+            ok = (auction.title || "").toLowerCase().includes(term) || (auction.description || "").toLowerCase().includes(term);
+          }
+          const price = Number(auction.currentPrice || auction.startingPrice || 0);
+          if (ok && q.priceMin !== undefined && q.priceMin !== null && q.priceMin !== "") ok = price >= Number(q.priceMin);
+          if (ok && q.priceMax !== undefined && q.priceMax !== null && q.priceMax !== "") ok = price <= Number(q.priceMax);
+          if (!ok) continue;
+
+          await createNotification({
+            userId: s.userId,
+            message: `New match for "${s.name || "Saved Search"}": ${auction.title}`,
+            link: `/auction/${auction._id}`,
+          });
+          if (global.io) {
+            global.io.to(`user_${s.userId}`).emit("notification", {
+              message: `New match for "${s.name || "Saved Search"}": ${auction.title}`,
+              link: `/auction/${auction._id}`,
+            });
+          }
+        }
+      } catch {}
+
+      await AuditLog.create({
+        userId: req.user && req.user._id,
+        action: "create",
+        entityType: "Auction",
+        entityId: auction._id,
+        before: {},
+        after: {
+          title: auction.title,
+          category: auction.category,
+          startingPrice: auction.startingPrice,
+          buyNowPrice: auction.buyNowPrice,
+          currentPrice: auction.currentPrice,
+          startTime: auction.startTime,
+          endTime: auction.endTime,
+          featured: auction.featured,
+          sellerId: auction.sellerId,
+        },
+        ip: req.ip || "",
+        userAgent: req.headers["user-agent"] || "",
+      });
+    } catch {}
     res.status(201).json(auction);
   } catch (err) {
     console.error("CREATE AUCTION ERROR:", err && err.stack ? err.stack : err);
@@ -360,8 +429,37 @@ exports.updateAuction = async (req, res) => {
       console.error("Cloudinary update upload failed:", uploadErr && uploadErr.message ? uploadErr.message : uploadErr);
     }
 
+    const beforeSnap = auction.toObject();
     Object.assign(auction, updates);
     const updated = await auction.save();
+    try {
+      const afterSnap = updated.toObject();
+      const keys = new Set([
+        ...Object.keys(updates || {}),
+        "title","description","category","status","featured","startingPrice","buyNowPrice","currentPrice","quantity","startTime","endTime","image","images"
+      ]);
+      const before = {};
+      const after = {};
+      keys.forEach((k) => {
+        const b = beforeSnap[k];
+        const a = afterSnap[k];
+        const changed = Array.isArray(b) || Array.isArray(a) ? JSON.stringify(b) !== JSON.stringify(a) : b !== a;
+        if (changed) {
+          before[k] = b;
+          after[k] = a;
+        }
+      });
+      await AuditLog.create({
+        userId: req.user && req.user._id,
+        action: "update",
+        entityType: "Auction",
+        entityId: updated._id,
+        before,
+        after,
+        ip: req.ip || "",
+        userAgent: req.headers["user-agent"] || "",
+      });
+    } catch {}
     res.json(updated);
   } catch (e) {
     res.status(500).json({ message: "Failed to update auction" });
@@ -379,7 +477,30 @@ exports.deleteAuction = async (req, res) => {
       return res.status(403).json({ message: "Not authorized to delete this auction" });
     }
 
+    const beforeSnap = auction.toObject();
     await Auction.findByIdAndDelete(req.params.id);
+    try {
+      await AuditLog.create({
+        userId: req.user && req.user._id,
+        action: "delete",
+        entityType: "Auction",
+        entityId: auction._id,
+        before: {
+          title: beforeSnap.title,
+          category: beforeSnap.category,
+          startingPrice: beforeSnap.startingPrice,
+          buyNowPrice: beforeSnap.buyNowPrice,
+          currentPrice: beforeSnap.currentPrice,
+          startTime: beforeSnap.startTime,
+          endTime: beforeSnap.endTime,
+          featured: beforeSnap.featured,
+          sellerId: beforeSnap.sellerId,
+        },
+        after: {},
+        ip: req.ip || "",
+        userAgent: req.headers["user-agent"] || "",
+      });
+    } catch {}
     res.json({ message: "Auction deleted" });
   } catch (err) {
     console.error("DELETE AUCTION ERROR:", err);
